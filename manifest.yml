@@ -1,0 +1,9 @@
+applications:
+  - name: my-node-api
+    path: .
+    memory: 128M
+    buildpacks:
+      - nodejs_buildpack
+    services:
+      - destination
+      - xsuaa
