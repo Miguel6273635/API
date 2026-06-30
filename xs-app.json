@@ -3,9 +3,8 @@
   "routes": [
     {
       "source": "^/api/(.*)$",
-      "target": "/api/$1",
-      "destination": "my-node-api",
-      "csrfProtection": false
+      "target": "$1",
+      "destination": "onPremECC_DEV_APP"
     }
   ]
 }
