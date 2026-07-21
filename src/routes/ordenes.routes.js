@@ -11,22 +11,28 @@ import {
 const router = express.Router();
 
 /**
- * GET /api/ordenes/sap/list?start=YYYY-MM-DD&end=YYYY-MM-DD&mode=eq|range
- * ✅ Supervisor ya NO manda user en query.
- * ✅ Se toma del token: req.user.email / req.user.correo / req.user.preferred_username
+ * GET /api/ordenes/sap/list
+ * Query:
+ * - start=YYYY-MM-DD
+ * - end=YYYY-MM-DD
+ * - mode=eq|range
+ * - enterDate=YYYY-MM-DD (opcional)
+ *
+ * El correo se toma prioritariamente del token Azure. Cuando EnterDate no es
+ * filtrable todavía en SAP, el servicio reintenta sin esa condición y aplica
+ * el filtro localmente como compatibilidad temporal.
  */
 router.get("/sap/list", verifyAzureToken, async (req, res) => {
   try {
     const { start, end, mode } = req.query;
+    const enterDate = req.query?.enterDate || req.query?.enter_date || null;
 
-    // ✅ correo desde token (prioridad)
     const tokenEmail =
       req.user?.correo ||
       req.user?.email ||
       req.user?.preferred_username ||
       null;
 
-    // ✅ aún permitimos user por query por compatibilidad (si lo usas en otro lado)
     const user = req.query?.user || tokenEmail;
 
     if (!user) {
@@ -36,7 +42,14 @@ router.get("/sap/list", verifyAzureToken, async (req, res) => {
       });
     }
 
-    const data = await listOrdenesSap({ start, end, user, mode });
+    const data = await listOrdenesSap({
+      start,
+      end,
+      user,
+      mode,
+      enterDate,
+    });
+
     return res.json(data);
   } catch (error) {
     const status = error?.statusCode || error?.response?.status || 500;
@@ -46,9 +59,6 @@ router.get("/sap/list", verifyAzureToken, async (req, res) => {
   }
 });
 
-/**
- * GET /api/ordenes/sap/:orderid
- */
 router.get("/sap/:orderid", verifyAzureToken, async (req, res) => {
   try {
     const { orderid } = req.params;
@@ -62,10 +72,6 @@ router.get("/sap/:orderid", verifyAzureToken, async (req, res) => {
   }
 });
 
-/**
- * GET /api/ordenes/sap/:orderid/addresses
- * -> regresa results de ToAddresses
- */
 router.get("/sap/:orderid/addresses", verifyAzureToken, async (req, res) => {
   try {
     const { orderid } = req.params;
@@ -79,10 +85,6 @@ router.get("/sap/:orderid/addresses", verifyAzureToken, async (req, res) => {
   }
 });
 
-
-/**
- * POST /api/ordenes/sap/checkin
- */
 router.post("/sap/checkin", verifyAzureToken, async (req, res) => {
   try {
     const data = await checkinOrdenSap(req.body || {});
