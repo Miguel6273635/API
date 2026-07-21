@@ -43,7 +43,10 @@ export async function fetchStatusCatalog(destination) {
   const r = await executeHttpRequest(destination, {
     method: "GET",
     url: path,
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "sap-terminate": "session",
+    },
   });
 
   const results = r?.data?.d?.results || [];

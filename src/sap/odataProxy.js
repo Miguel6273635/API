@@ -10,7 +10,6 @@ import {
 import { getSapDestination } from "./destination.js";
 import { fetchCsrfAndCookies, forwardWrite } from "./csrf.js";
 
-/** Utilidad: arma querystring igual que antes */
 export function buildQs(obj = {}) {
   const p = new URLSearchParams(obj);
   return p.toString() ? `?${p.toString()}` : "";
@@ -36,15 +35,17 @@ export function servicesListPayload() {
       "/api/odata/ZCS_GET_NOTIFICATION_SRV/NotificationHeaderSet?$top=5",
       "/api/odata/ZCS_GET_BOM_MATERIAL_SRV/BomHeaderSet?$top=5",
     ],
-    writeExamples: ["POST /api/odata/ZCS_CREATE_CONFIRMATION_SRV/ConfirmationHeaderSet"],
+    writeExamples: [
+      "POST /api/odata/ZCS_CREATE_CONFIRMATION_SRV/ConfirmationHeaderSet",
+    ],
   };
 }
 
 /**
- * Proxy GET
- * - service: nombre del servicio
- * - extraPath: "" o "WorkOrderHeaderSet?$top=5" o "$metadata"
- * - query: req.query
+ * Proxy GET.
+ * Cada lectura es independiente, por lo que se solicita a SAP terminar la
+ * sesión al concluir la petición. Esto evita acumular sesiones soft-state en
+ * SM05 sin desactivar el pooling interno que requiere Cloud Connector.
  */
 export async function proxyOdataRead({ service, extraPath = "", query = {} }) {
   if (!isAllowedService(service)) {
@@ -55,23 +56,22 @@ export async function proxyOdataRead({ service, extraPath = "", query = {} }) {
 
   const d = await getSapDestination();
   if (!d) {
-    const e = new Error(`Destination no encontrado`);
+    const e = new Error("Destination no encontrado");
     e.statusCode = 404;
     throw e;
   }
 
   const isMetadata = String(extraPath || "").endsWith("$metadata");
-
   let path = `/sap/opu/odata/sap/${encodeURIComponent(service)}/`;
 
-  // si viene subruta, se pega
   if (extraPath) {
     const clean = String(extraPath).replace(/^\/+/, "");
     path += clean;
   }
 
-  // headers según metadata o json
-  const headers = {};
+  const headers = {
+    "sap-terminate": "session",
+  };
 
   if (isMetadata) {
     headers.Accept = "application/xml";
@@ -103,16 +103,14 @@ export async function proxyOdataRead({ service, extraPath = "", query = {} }) {
   };
 }
 
-/**
- * Proxy WRITE: POST/PUT/PATCH/DELETE
- * - service: servicio (debe estar en WRITE_SERVICES)
- * - extraPath: subruta (ej ConfirmationHeaderSet)
- * - query: req.query
- * - verb: "POST" | "PUT" | "PATCH" | "DELETE"
- * - body: req.body
- * - contentType: según req.headers['content-type']
- */
-export async function proxyOdataWrite({ service, extraPath = "", query = {}, verb, body, contentType }) {
+export async function proxyOdataWrite({
+  service,
+  extraPath = "",
+  query = {},
+  verb,
+  body,
+  contentType,
+}) {
   if (!isWritableService(service)) {
     const e = new Error(`Servicio no permitido para escritura: ${service}`);
     e.statusCode = 400;
@@ -122,7 +120,7 @@ export async function proxyOdataWrite({ service, extraPath = "", query = {}, ver
 
   const d = await getSapDestination();
   if (!d) {
-    const e = new Error(`Destination no encontrado`);
+    const e = new Error("Destination no encontrado");
     e.statusCode = 404;
     throw e;
   }
@@ -134,16 +132,12 @@ export async function proxyOdataWrite({ service, extraPath = "", query = {}, ver
     path += clean;
   }
 
-  // asegurar sap-client y sap-language
   const qp = new URLSearchParams(query);
   if (!qp.has("sap-client")) qp.set("sap-client", SAP_CLIENT);
   if (!qp.has("sap-language")) qp.set("sap-language", SAP_LANG);
-
   path += (path.includes("?") ? "&" : "?") + qp.toString();
 
-  // CSRF por servicio
   const { csrfToken, cookies } = await fetchCsrfAndCookies(d, service);
-
 
   const ct =
     (contentType || "").includes("application/atom+xml")
@@ -153,15 +147,15 @@ export async function proxyOdataWrite({ service, extraPath = "", query = {}, ver
   log(`WRITE ${verb}`, d.url + path);
 
   const r = await forwardWrite({
-  destination: d,
+    destination: d,
     method: verb,
     path,
     body,
     csrfToken,
     cookies,
     contentType: ct,
+    terminateSession: true,
   });
-
 
   return { status: r.status || 200, data: r.data };
 }

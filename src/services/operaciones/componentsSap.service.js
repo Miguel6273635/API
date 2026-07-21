@@ -13,18 +13,16 @@ export async function fetchComponentsFromSap(orderid, activityRaw) {
     String(orderid).trim()
   )}')/ToComponents?$format=json`;
 
-  const resp = await executeHttpRequest(
-    destination, // ✅ así lo usas en el resto de tu API (dest, no {destination})
-    {
-      method: "GET",
-      url,
-      headers: {
-        "sap-client": SAP_CLIENT,
-        "Accept-Language": SAP_LANG || "ES",
-        accept: "application/json",
-      },
-    }
-  );
+  const resp = await executeHttpRequest(destination, {
+    method: "GET",
+    url,
+    headers: {
+      "sap-client": SAP_CLIENT,
+      "Accept-Language": SAP_LANG || "ES",
+      accept: "application/json",
+      "sap-terminate": "session",
+    },
+  });
 
   const results = resp?.data?.d?.results || [];
 
