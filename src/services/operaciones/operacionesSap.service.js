@@ -4,22 +4,8 @@ import { SAP_CLIENT, SAP_LANG } from "../../config/env.js";
 import { getSapDestination } from "../../sap/destination.js";
 
 const BASE = "/sap/opu/odata/sap/ZCS_GET_WORKORDER_SRV";
-
-// Navegación desde la orden hacia operaciones.
-// Si en $metadata aparece otro nombre, cámbialo aquí.
 const NAV_FROM_HEADER = "ToOperations";
-
-// Logging
 const LOG_OPS = true;
-const LOG_RAW_DATA = false;
-
-function safeJson(x) {
-  try {
-    return JSON.stringify(x, null, 2);
-  } catch {
-    return String(x);
-  }
-}
 
 function odataList(data) {
   if (Array.isArray(data)) return data;
@@ -29,101 +15,76 @@ function odataList(data) {
 }
 
 function parseUserStatus(fieldUserStatusRaw) {
-  const s = String(fieldUserStatusRaw || "").trim().toUpperCase();
-
-  if (!s) {
-    return {
-      isFinal: false,
-      isPaused: false,
-      tokens: [],
-    };
-  }
-
-  const tokens = s.split(/\s+/).filter(Boolean);
-
-  const isFinal = tokens.includes("FINA");
-  const isPaused = tokens.includes("PAUS");
+  const value = String(fieldUserStatusRaw || "").trim().toUpperCase();
+  const tokens = value ? value.split(/\s+/).filter(Boolean) : [];
 
   return {
-    isFinal,
-    isPaused,
+    isFinal: tokens.includes("FINA"),
+    isPaused: tokens.includes("PAUS"),
     tokens,
   };
 }
 
-/**
- * Normaliza operaciones y agrega Usr02.
- */
 function normalizeOps(rows = []) {
-  return rows.map((r) => {
-    const Activity = String(r.Activity ?? r.Vornr ?? "").trim();
-
-    const SubActivity = String(r.SubActivity ?? r.Uvorn ?? "").trim();
-
+  return rows.map((row) => {
+    const Activity = String(row.Activity ?? row.Vornr ?? "").trim();
+    const SubActivity = String(row.SubActivity ?? row.Uvorn ?? "").trim();
     const Description = String(
-      r.Description ?? r.Ltxa1 ?? r.ShortText ?? "",
+      row.Description ?? row.Ltxa1 ?? row.ShortText ?? ""
     ).trim();
-
     const StandardTextKey = String(
-      r.StandardTextKey ?? r.Standardtextkey ?? "",
+      row.StandardTextKey ?? row.Standardtextkey ?? ""
     ).trim();
-
-    const Usr00 = String(r.Usr00 ?? r.USR00 ?? r.usr00 ?? "").trim();
-
-    const Usr01 = String(r.Usr01 ?? r.USR01 ?? r.usr01 ?? "").trim();
-
+    const Usr00 = String(row.Usr00 ?? row.USR00 ?? row.usr00 ?? "").trim();
+    const Usr01 = String(row.Usr01 ?? row.USR01 ?? row.usr01 ?? "").trim();
     const Usr02 = String(
-      r.Usr02 ??
-        r.USR02 ??
-        r.usr02 ??
-        r["Usr_02"] ??
-        r["USR_02"] ??
-        r["usr_02"] ??
-        "",
+      row.Usr02 ??
+        row.USR02 ??
+        row.usr02 ??
+        row["Usr_02"] ??
+        row["USR_02"] ??
+        row["usr_02"] ??
+        ""
     ).trim();
 
     const fieldUserStatus =
-      r.FieldUserStatus ?? r.Fielduserstatus ?? r.FIELDUSERSTATUS ?? "";
+      row.FieldUserStatus ??
+      row.Fielduserstatus ??
+      row.FIELDUSERSTATUS ??
+      "";
 
     const { isFinal, isPaused, tokens } = parseUserStatus(fieldUserStatus);
-
-    const estatus = isFinal ? "finalizada" : isPaused ? "pausada" : "pendiente";
 
     return {
       Activity,
       SubActivity,
       Description,
       StandardTextKey,
-
-      DurationNormal: r.DurationNormal ?? r.Dauno ?? null,
-      DurationNormalUnit: r.DurationNormalUnit ?? r.Daune ?? null,
-
+      DurationNormal: row.DurationNormal ?? row.Dauno ?? null,
+      DurationNormalUnit: row.DurationNormalUnit ?? row.Daune ?? null,
       Usr00,
       Usr01,
       Usr02,
-
       FieldUserStatus: String(fieldUserStatus || "").trim(),
       FieldUserStatusTokens: tokens,
       isFinalizadaSap: isFinal,
       isPausadaSap: isPaused,
-
-      estatus,
-
-      raw: r,
+      estatus: isFinal ? "finalizada" : isPaused ? "pausada" : "pendiente",
+      raw: row,
     };
   });
 }
 
-function sortOps(ops = []) {
-  return [...ops].sort((a, b) => {
-    const c0 = String(a.Usr00 || "").localeCompare(String(b.Usr00 || ""));
-    if (c0 !== 0) return c0;
+function sortOps(operations = []) {
+  return [...operations].sort((a, b) => {
+    const byUsr00 = String(a.Usr00 || "").localeCompare(String(b.Usr00 || ""));
+    if (byUsr00 !== 0) return byUsr00;
 
-    const c1 = String(a.Usr01 || "").localeCompare(String(b.Usr01 || ""));
-    if (c1 !== 0) return c1;
+    const byUsr01 = String(a.Usr01 || "").localeCompare(String(b.Usr01 || ""));
+    if (byUsr01 !== 0) return byUsr01;
 
-    const c2 = String(a.Usr02 || "").localeCompare(String(b.Usr02 || ""));
-    if (c2 !== 0) return c2;
+    const byUsr02 = String(a.Usr02 || "").localeCompare(String(b.Usr02 || ""));
+    if (byUsr02 !== 0) return byUsr02;
 
     return String(a.Activity || "").localeCompare(String(b.Activity || ""));
   });
@@ -131,97 +92,34 @@ function sortOps(ops = []) {
 
 async function getJson(destination, url, meta = {}) {
   if (LOG_OPS) {
-    console.log(
-      `\n🟦 [OPS][GET] ${url}\n🟦 [OPS][meta] ${safeJson({
-        sapClient: SAP_CLIENT,
-        sapLang: SAP_LANG || "ES",
-        ...meta,
-      })}\n`,
-    );
+    console.log("[OPS][GET]", {
+      url,
+      sapClient: SAP_CLIENT,
+      sapLang: SAP_LANG || "ES",
+      ...meta,
+    });
   }
 
-  const resp = await executeHttpRequest(destination, {
+  const response = await executeHttpRequest(destination, {
     method: "GET",
     url,
     headers: {
-      accept: "application/json",
+      Accept: "application/json",
+      "sap-terminate": "session",
     },
   });
 
-  const data = resp?.data;
+  const rows = odataList(response?.data);
 
   if (LOG_OPS) {
-    const rows = odataList(data);
-
-    console.log(
-      `🟩 [OPS][OK] filas=${rows.length} ${
-        meta?.modo ? `modo=${meta.modo}` : ""
-      }`,
-    );
-
-    if (rows.length) {
-      const first = rows[0] || {};
-
-      console.log(`[OPS][FIRST_KEYS] ${safeJson(Object.keys(first))}`);
-
-      console.log(
-        `[OPS][FIRST_Usr02_CANDIDATES] ${safeJson({
-          Usr02: first?.Usr02,
-          USR02: first?.USR02,
-          usr02: first?.usr02,
-          Usr_02: first?.["Usr_02"],
-          USR_02: first?.["USR_02"],
-          usr_02: first?.["usr_02"],
-        })}`,
-      );
-
-      const pairs = rows.slice(0, 50).map((r) => ({
-        Usr00: String(r.Usr00 ?? r.USR00 ?? r.usr00 ?? "").trim(),
-        Usr01: String(r.Usr01 ?? r.USR01 ?? r.usr01 ?? "").trim(),
-        Usr02: String(
-          r.Usr02 ??
-            r.USR02 ??
-            r.usr02 ??
-            r["Usr_02"] ??
-            r["USR_02"] ??
-            r["usr_02"] ??
-            "",
-        ).trim(),
-        Activity: String(r.Activity ?? r.Vornr ?? "").trim(),
-        Desc: String(r.Description ?? r.Ltxa1 ?? r.ShortText ?? "").trim(),
-      }));
-
-      const unique = [];
-      const seen = new Set();
-
-      for (const p of pairs) {
-        const key = `${p.Usr00}||${p.Usr01}||${p.Usr02}`;
-
-        if (!seen.has(key)) {
-          seen.add(key);
-          unique.push({
-            Usr00: p.Usr00,
-            Usr01: p.Usr01,
-            Usr02: p.Usr02,
-          });
-        }
-
-        if (unique.length >= 12) break;
-      }
-
-      console.log(
-        `🟩 [OPS][PREVIEW] combos Usr00/Usr01/Usr02 (máx 12): ${safeJson(
-          unique,
-        )}`,
-      );
-
-      if (LOG_RAW_DATA) {
-        console.log(`🟨 [OPS][RAW_DATA] ${safeJson(data)}`);
-      }
-    }
+    console.log("[OPS][OK]", {
+      orderid: meta?.orderid || null,
+      modo: meta?.modo || null,
+      filas: rows.length,
+    });
   }
 
-  return data;
+  return response?.data;
 }
 
 export async function fetchOperacionesSap(orderidRaw) {
@@ -230,20 +128,10 @@ export async function fetchOperacionesSap(orderidRaw) {
 
   if (!orderid) return [];
 
-  /**
-   * Antes se intentaba:
-   * WorkOrderOperationSet?$filter=Orderid eq '...'
-   *
-   * Pero SAP respondió:
-   * "Property Orderid not found in type WorkOrderOperation"
-   *
-   * Por eso ahora usamos directamente la navegación:
-   * WorkOrderHeaderSet('...')/ToOperations
-   */
   try {
     const url =
       `${BASE}/WorkOrderHeaderSet('${encodeURIComponent(
-        orderid,
+        orderid
       )}')/${NAV_FROM_HEADER}` +
       `?$format=json` +
       `&sap-client=${encodeURIComponent(SAP_CLIENT)}` +
@@ -254,25 +142,18 @@ export async function fetchOperacionesSap(orderidRaw) {
       orderid,
     });
 
-    const rows = odataList(data);
-    const ops = sortOps(normalizeOps(rows));
+    return sortOps(normalizeOps(odataList(data)));
+  } catch (error) {
+    const wrapped = new Error("SAP no devolvió operaciones por navegación.");
+    wrapped.statusCode = error?.response?.status || 500;
+    wrapped.cause = error;
+    wrapped.response = error?.response;
 
-    if (LOG_OPS) {
-      console.log(`🟩 [OPS][NORMALIZED] ops=${ops.length} (NAV)`);
-    }
+    console.error(
+      "[OPS][NAV_FAIL]",
+      error?.response?.data || error?.message || error
+    );
 
-    return ops;
-  } catch (e) {
-    const err = new Error("SAP no devolvió operaciones por navegación.");
-    err.statusCode = e?.response?.status || 500;
-    err.cause = e;
-    err.response = e?.response;
-
-    if (LOG_OPS) {
-      const detail = e?.response?.data || e?.message || e;
-      console.error(`🟥 [OPS][NAV_FAIL] ${safeJson(detail)}`);
-    }
-
-    throw err;
+    throw wrapped;
   }
 }
