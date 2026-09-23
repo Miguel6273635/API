@@ -1,5 +1,5 @@
 // src/sap/odataProxy.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "./http.js";
 import {
   SAP_CLIENT,
   SAP_LANG,
@@ -90,7 +90,7 @@ export async function proxyOdataRead({ service, extraPath = "", query = {} }) {
 
   log("GET", d.url + path);
 
-  const r = await executeHttpRequest(d, {
+  const r = await executeSapHttpRequest(d, {
     method: "GET",
     url: path,
     headers,

@@ -1,5 +1,5 @@
 // src/sap/confirmations.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "./http.js";
 import { SAP_CLIENT, SAP_LANG } from "../config/env.js";
 import { getSapDestination } from "./destination.js";
 import { fetchCsrfAndCookies } from "./csrf.js";
@@ -11,7 +11,7 @@ export async function postConfirmation(payload) {
 
   const { csrfToken, cookies } = await fetchCsrfAndCookies(destination, serviceName);
 
-  const resp = await executeHttpRequest(destination, {
+  const resp = await executeSapHttpRequest(destination, {
     method: "POST",
     url: `${servicePath}/ConfirmationHeaderSet`,
     headers: {

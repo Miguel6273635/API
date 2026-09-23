@@ -1,5 +1,5 @@
 // src/services/operaciones/operacionesSap.service.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../../sap/http.js";
 import { SAP_CLIENT, SAP_LANG } from "../../config/env.js";
 import { getSapDestination } from "../../sap/destination.js";
 
@@ -140,7 +140,7 @@ async function getJson(destination, url, meta = {}) {
     );
   }
 
-  const resp = await executeHttpRequest(destination, {
+  const resp = await executeSapHttpRequest(destination, {
     method: "GET",
     url,
     headers: {

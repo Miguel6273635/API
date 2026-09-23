@@ -1,5 +1,5 @@
 // src/sap/csrf.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest, getSapSecurityCookie } from "./http.js";
 import { SAP_CLIENT, SAP_LANG, log } from "../config/env.js";
 
 /**
@@ -40,7 +40,7 @@ export async function fetchCsrfAndCookies(destination, serviceNameOrPath) {
 
   log("GET (CSRF)", destination.url + path);
 
-  const r = await executeHttpRequest(destination, {
+  const r = await executeSapHttpRequest(destination, {
     method: "GET",
     url: path,
     headers: { "X-CSRF-Token": "Fetch", Accept: "application/json" },
@@ -51,9 +51,13 @@ export async function fetchCsrfAndCookies(destination, serviceNameOrPath) {
   const csrfToken = h["x-csrf-token"] || h["X-CSRF-Token"];
 
   const setCookie = h["set-cookie"] || h["Set-Cookie"];
-  const cookies = Array.isArray(setCookie)
+  const responseCookies = Array.isArray(setCookie)
     ? setCookie.map((c) => c.split(";")[0]).join("; ")
-    : (setCookie || "");
+    : (setCookie ? setCookie.split(";")[0] : "");
+  const securityCookie = getSapSecurityCookie(destination, { url: path });
+  const cookies = securityCookie && !responseCookies.includes(securityCookie.split("=")[0] + "=")
+    ? [responseCookies, securityCookie].filter(Boolean).join("; ")
+    : responseCookies || securityCookie || "";
 
   if (!csrfToken) throw new Error("No se pudo obtener X-CSRF-Token de SAP.");
   if (!cookies) throw new Error("No se pudieron obtener cookies (set-cookie) de SAP.");
@@ -83,7 +87,7 @@ export async function forwardWrite({
 
   log(method, destination.url + path);
 
-  return executeHttpRequest(destination, {
+  return executeSapHttpRequest(destination, {
     method,
     url: path,
     headers,

@@ -1,5 +1,5 @@
 // src/services/rutaSap.service.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../sap/http.js";
 import { SAP_CLIENT, SAP_LANG } from "../config/env.js";
 import { getSapDestination } from "../sap/destination.js";
 import { listOrdenesSap } from "./ordersSap.service.js";
@@ -46,7 +46,7 @@ async function fetchFirstAddressForOrder(destination, orderid) {
       String(orderid)
     )}')/ToAddresses?` + qp.toString();
 
-  const r = await executeHttpRequest(destination, {
+  const r = await executeSapHttpRequest(destination, {
     method: "GET",
     url: path,
     headers: { Accept: "application/json" },

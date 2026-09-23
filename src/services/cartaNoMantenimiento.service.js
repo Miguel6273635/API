@@ -1,6 +1,6 @@
 // src/services/cartaNoMantenimiento.service.js
 import { getDestination } from "@sap-cloud-sdk/connectivity";
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../sap/http.js";
 import { DEST_NAME, SAP_CLIENT, SAP_LANG, log } from "../config/env.js";
 import { fetchCsrfAndCookies, forwardWrite } from "../sap/csrf.js";
 
@@ -122,7 +122,7 @@ export async function getDatosCartaNoMantenimiento({ orderid, user }) {
 
   log("GET", d.url + headerPath);
 
-  const rHdr = await executeHttpRequest(d, {
+  const rHdr = await executeSapHttpRequest(d, {
     method: "GET",
     url: headerPath,
     headers: { Accept: "application/json" },
@@ -151,7 +151,7 @@ export async function getDatosCartaNoMantenimiento({ orderid, user }) {
   try {
     log("GET", d.url + addrPath);
 
-    const rAddr = await executeHttpRequest(d, {
+    const rAddr = await executeSapHttpRequest(d, {
       method: "GET",
       url: addrPath,
       headers: { Accept: "application/json" },

@@ -1,6 +1,6 @@
 // src/services/ordersSap.service.js
 import { getDestination } from "@sap-cloud-sdk/connectivity";
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../sap/http.js";
 import { DEST_NAME, SAP_CLIENT, SAP_LANG, log } from "../config/env.js";
 import { fetchStatusCatalog, mapUserstatusToUi } from "./statusCatalog.js";
 import { fetchCsrfAndCookies, forwardWrite } from "../sap/csrf.js";
@@ -28,6 +28,18 @@ function sapV2DateToISO(val) {
   const d = new Date(val);
 
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function getShortTextFromSap(wo = {}) {
+  return String(
+    wo?.ShortText ||
+      wo?.Shorttext ||
+      wo?.shortText ||
+      wo?.short_text ||
+      wo?.Description ||
+      wo?.description ||
+      ""
+  ).trim();
 }
 
 /** ===================== LISTA ÓRDENES ===================== */
@@ -74,7 +86,7 @@ export async function listOrdenesSap({ start, end, user, mode = "range" }) {
   console.log("[ORDENES][LIST] mode =", mode);
   console.log("[ORDENES][LIST] $filter =", filter);
 
-  const r = await executeHttpRequest(d, {
+  const r = await executeSapHttpRequest(d, {
     method: "GET",
     url: path,
     headers: { Accept: "application/json" },
@@ -96,6 +108,9 @@ export async function listOrdenesSap({ start, end, user, mode = "range" }) {
       wo?.FinishDate || wo?.Finishdate || wo?.Finish_date
     );
 
+    // ✅ Campo de cobertura que viene de SAP
+    const shortText = getShortTextFromSap(wo);
+
     return {
       Orderid: orderid,
       orderid,
@@ -116,6 +131,14 @@ export async function listOrdenesSap({ start, end, user, mode = "range" }) {
       id_mecanico: wo?.IdMecanico || "",
       nombre_mecanico: wo?.NombreMec || "",
       nombre_cliente: wo?.NombreCliente || "",
+
+      // ✅ Cobertura de la orden
+      // En SAP viene como ShortText:
+      // "COBERTURA BASICA | Plan: 01|07"
+      ShortText: shortText,
+      shortText,
+      short_text: shortText,
+      cobertura: shortText,
 
       userstatus: us,
 
@@ -285,7 +308,7 @@ export async function getOrdenSapById(orderidRaw) {
 
   log("GET", d.url + path);
 
-  const r = await executeHttpRequest(d, {
+  const r = await executeSapHttpRequest(d, {
     method: "GET",
     url: path,
     headers: { Accept: "application/json" },
@@ -310,6 +333,9 @@ export async function getOrdenSapById(orderidRaw) {
     wo?.FinishDate || wo?.Finishdate || wo?.Finish_date
   );
 
+  // ✅ Campo de cobertura que viene de SAP
+  const shortText = getShortTextFromSap(wo);
+
   return {
     Orderid: wo?.Orderid || wo?.OrderId || wo?.Aufnr || orderid,
     orderid: wo?.Orderid || wo?.OrderId || wo?.Aufnr || orderid,
@@ -328,6 +354,12 @@ export async function getOrdenSapById(orderidRaw) {
     id_mecanico: wo?.IdMecanico || "",
     nombre_mecanico: wo?.NombreMec || "",
     nombre_cliente: wo?.NombreCliente || "",
+
+    // ✅ Cobertura de la orden
+    ShortText: shortText,
+    shortText,
+    short_text: shortText,
+    cobertura: shortText,
 
     userstatus: us,
     ...ui,
@@ -365,7 +397,7 @@ export async function getOrdenAddressesSap(orderidRaw) {
 
   log("GET", d.url + path);
 
-  const r = await executeHttpRequest(d, {
+  const r = await executeSapHttpRequest(d, {
     method: "GET",
     url: path,
     headers: { Accept: "application/json" },

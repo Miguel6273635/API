@@ -12,6 +12,7 @@ applications:
     env:
       NODE_ENV: production
       DEST_NAME: onPremECC_QAS_APP
+      SAP_REUSE_SECURITY_SESSION: "true"
       SAP_CLIENT: "400"
       SAP_LANGUAGE: "ES"
       SAP_JWT_TRUST_ACL: '[{"clientid":"*","identityzone":"*"}]'

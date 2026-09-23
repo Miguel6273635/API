@@ -1,5 +1,5 @@
 // src/services/statusCatalog.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../sap/http.js";
 import { SAP_CLIENT, SAP_LANG, log } from "../config/env.js";
 
 let STATUS_CACHE = {
@@ -40,7 +40,7 @@ export async function fetchStatusCatalog(destination) {
 
   log("GET", destination.url + path);
 
-  const r = await executeHttpRequest(destination, {
+  const r = await executeSapHttpRequest(destination, {
     method: "GET",
     url: path,
     headers: { Accept: "application/json" },

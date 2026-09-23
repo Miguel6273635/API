@@ -1,5 +1,5 @@
 // src/services/operaciones/componentsSap.service.js
-import { executeHttpRequest } from "@sap-cloud-sdk/http-client";
+import { executeSapHttpRequest } from "../../sap/http.js";
 import { SAP_CLIENT, SAP_LANG } from "../../config/env.js";
 import { getSapDestination } from "../../sap/destination.js";
 
@@ -13,7 +13,7 @@ export async function fetchComponentsFromSap(orderid, activityRaw) {
     String(orderid).trim()
   )}')/ToComponents?$format=json`;
 
-  const resp = await executeHttpRequest(
+  const resp = await executeSapHttpRequest(
     destination, // ✅ así lo usas en el resto de tu API (dest, no {destination})
     {
       method: "GET",
